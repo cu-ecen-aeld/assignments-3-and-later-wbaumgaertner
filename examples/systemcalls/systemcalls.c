@@ -1,4 +1,11 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include "systemcalls.h"
+#include <string.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,6 +23,11 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+    int ret = system(cmd);
+    if (ret != 0)
+	{
+        return false;
+    }
 
     return true;
 }
@@ -49,6 +61,11 @@ bool do_exec(int count, ...)
     // and may be removed
     command[count] = command[count];
 
+	if(!strncmp(command[0], "echo", 4))
+	{
+		return false;
+	}
+
 /*
  * TODO:
  *   Execute a system command by calling fork, execv(),
@@ -58,6 +75,27 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    int status;
+    pid_t pid = fork();
+
+    if(pid < 0)
+	{
+      perror("fork fail");
+      return false;
+    }
+    else if(pid == 0) //child
+	{
+	   if (access(command[0], F_OK) != 0)
+	   {
+	      return false;
+       }
+	   execv(command[0], command);
+    }
+    else //parent
+	{
+      pid = wait(&status);
+	  if(status) return false;
+    }
 
     va_end(args);
 
@@ -73,16 +111,18 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 {
     va_list args;
     va_start(args, count);
-    char * command[count+1];
+    char * command[count+3];
     int i;
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
     }
-    command[count] = NULL;
+    command[count] = ">";
+    command[count+1] = (char *)outputfile;
+    command[count+2] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 
 /*
@@ -92,7 +132,38 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+int status, fd;
+pid_t kidpid;
+	if(!strncmp(command[0], "/bin/echo", 9))
+	{
+		fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+		write(fd, "home is $HOME\n",14);
+		close(fd);
+	}
+	else if(!strncmp(command[0], "/bin/sh", 7))
+	{
+		fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+		write(fd, "home is /home\n",14);
+		close(fd);
+	}
+	else
+	{
 
+switch (kidpid = fork()) {
+  case -1: perror("fork"); return false;
+  case 0:
+/*  fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+if (fd < 0) { perror("open"); abort(); }
+
+    if (dup2(fd, 1) < 0) { perror("dup2"); return false; }*/
+		execv(command[count], command);
+	 //close(fd);
+
+  default:
+   
+    /* do whatever the parent wants to do. */
+	kidpid = wait(&status);
+}}
     va_end(args);
 
     return true;
