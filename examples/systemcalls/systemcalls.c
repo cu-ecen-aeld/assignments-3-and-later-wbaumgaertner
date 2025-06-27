@@ -85,16 +85,15 @@ bool do_exec(int count, ...)
     }
     else if(pid == 0) //child
 	{
-	   if (access(command[0], F_OK) != 0)
-	   {
-	      return false;
-       }
 	   execv(command[0], command);
+	   exit(EXIT_FAILURE);
     }
     else //parent
 	{
-      pid = wait(&status);
-	  if(status) return false;
+      pid = waitpid(pid, &status, 0);
+	  if(pid < 0) return false;
+	  printf("WIFEXITED:%d WEXITSTATUS:%d\n",  WIFEXITED(status), WEXITSTATUS(status));
+	  if(!WIFEXITED(status) || WEXITSTATUS(status)) return false;
     }
 
     va_end(args);
@@ -111,15 +110,13 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 {
     va_list args;
     va_start(args, count);
-    char * command[count+3];
+    char * command[count+1];
     int i;
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
     }
-    command[count] = ">";
-    command[count+1] = (char *)outputfile;
-    command[count+2] = NULL;
+    command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
     //command[count] = command[count];
@@ -134,36 +131,24 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 */
 int status, fd;
 pid_t kidpid;
-	if(!strncmp(command[0], "/bin/echo", 9))
-	{
-		fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-		write(fd, "home is $HOME\n",14);
-		close(fd);
-	}
-	else if(!strncmp(command[0], "/bin/sh", 7))
-	{
-		fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-		write(fd, "home is /home\n",14);
-		close(fd);
-	}
-	else
-	{
-
+fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+if (fd < 0) { perror("open"); return false; }
 switch (kidpid = fork()) {
-  case -1: perror("fork"); return false;
+  case -1: perror("fork"); close(fd); return false;
   case 0:
-/*  fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-if (fd < 0) { perror("open"); abort(); }
-
-    if (dup2(fd, 1) < 0) { perror("dup2"); return false; }*/
-		execv(command[count], command);
-	 //close(fd);
+    if (dup2(fd, 1) < 0) { perror("dup2"); return false; }
+	execv(command[0], command);
+	exit(EXIT_FAILURE);
 
   default:
    
     /* do whatever the parent wants to do. */
-	kidpid = wait(&status);
-}}
+	kidpid = waitpid(kidpid, &status, 0);
+	close(fd);
+	if(kidpid < 0) return false;
+	printf("WIFEXITED:%d WEXITSTATUS:%d\n",  WIFEXITED(status), WEXITSTATUS(status));
+	if(!WIFEXITED(status) || WEXITSTATUS(status)) return false;
+}
     va_end(args);
 
     return true;
