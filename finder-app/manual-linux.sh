@@ -53,7 +53,7 @@ then
     sudo rm  -rf ${OUTDIR}/rootfs
 fi
 
-# TODO:  Create necessary base directories
+# TODO: Create necessary base directories
 mkdir ${OUTDIR}/rootfs && cd ${OUTDIR}/rootfs
 mkdir bin dev etc home lib lib64 proc sbin sys tmp usr var
 mkdir usr/bin usr/lib usr/sbin
